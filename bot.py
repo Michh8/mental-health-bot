@@ -2,18 +2,19 @@ import os
 import sys
 import logging
 import pkg_resources
+import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 import google.generativeai as genai  # ✅ Para listar modelos de Gemini
+from aiohttp import web  # ✅ Servidor web para mantener vivo el bot
 
 # ===============================
 # Verificación de versiones
 # ===============================
 print("🔍 Verificando entorno...")
-
 print(f"Python versión: {sys.version}")
 
 required = {
@@ -75,6 +76,24 @@ async def chat(update, context):
         await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
 
 # ===============================
+# Servidor web para Render / Railway
+# ===============================
+async def handle(request):
+    return web.Response(text="Bot activo ✅")
+
+async def run_webserver():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    port = int(os.environ.get("PORT", 10000))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"🌐 Servidor web corriendo en puerto {port}")
+    while True:
+        await asyncio.sleep(3600)
+
+# ===============================
 # Main
 # ===============================
 def main():
@@ -91,6 +110,9 @@ def main():
 
     # Chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+
+    # 🚀 Iniciar servidor web en paralelo
+    asyncio.create_task(run_webserver())
 
     print("🤖 Bot en ejecución...")
     app.run_polling()
