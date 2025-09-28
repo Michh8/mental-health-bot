@@ -38,7 +38,10 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
 # ===============================
 # Probar conexión con Gemini
@@ -94,9 +97,9 @@ async def run_webserver():
         await asyncio.sleep(3600)
 
 # ===============================
-# Main (ahora asíncrona)
+# Main corregido (sin asyncio.run dentro de run_polling)
 # ===============================
-async def main():
+def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Comandos
@@ -111,11 +114,12 @@ async def main():
     # Chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # 🚀 Iniciar servidor web en paralelo
-    asyncio.create_task(run_webserver())
+    # 🚀 Servidor web en paralelo
+    asyncio.get_event_loop().create_task(run_webserver())
 
     print("🤖 Bot en ejecución...")
-    await app.run_polling()
+    app.run_polling()  # <- ya maneja el loop
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
