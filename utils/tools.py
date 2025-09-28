@@ -19,7 +19,7 @@ llm = ChatGoogleGenerativeAI(
 # ===============================
 def find_psych_centers(location: str) -> str:
     try:
-        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental", "psicologo","psicologa","psicologica","psicologico"]
+        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental", "psicologo","psicologa","psicologica","psicologico","clinica psicologica","hospital"]
         headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
         all_results = []
 
