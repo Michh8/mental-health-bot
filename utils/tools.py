@@ -2,7 +2,12 @@ import requests
 import random
 import logging
 from langchain.tools import Tool
-from config import WEATHER_API_KEY
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.schema import HumanMessage
+from config import WEATHER_API_KEY, GEMINI_API_KEY
+
+# Modelo Gemini para MoodCheck
+llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=GEMINI_API_KEY)
 
 # ===============================
 # Tool 1: Buscar centros psicológicos
@@ -11,16 +16,16 @@ def find_psych_centers(location: str) -> str:
     try:
         url = "https://nominatim.openstreetmap.org/search"
         params = {
-            "q": f"centro psicológico {location}",
+            "q": f"psicólogo {location}",  # mejora en la query
             "format": "json",
-            "limit": 5
+            "limit": 10
         }
         headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
         response = requests.get(url, params=params, headers=headers, timeout=8)
         results = response.json()
 
         if not results:
-            return f"No encontré centros psicológicos cerca de '{location}'."
+            return f"No encontré psicólogos o clínicas en '{location}'."
 
         output = []
         for r in results:
@@ -33,11 +38,11 @@ def find_psych_centers(location: str) -> str:
 
     except Exception as e:
         logging.exception("Error en PsychCentersTool")
-        return f"Error al consultar centros psicológicos: {e}"
+        return f"Error al consultar psicólogos: {e}"
 
 psych_tool = Tool(
     name="PsychCentersTool",
-    description="Busca centros psicológicos cercanos a una ubicación usando OpenStreetMap.",
+    description="Busca psicólogos o clínicas psicológicas cercanas a una ubicación usando OpenStreetMap.",
     func=find_psych_centers
 )
 
@@ -65,18 +70,20 @@ motivation_tool = Tool(
 # Tool 3: Comprobación de ánimo
 # ===============================
 def mood_check_tool_func(description: str) -> str:
-    description = description.lower()
-    if "triste" in description or "deprimido" in description:
-        return "😢 Parece que te sientes triste. Respira profundamente y da un pequeño paseo."
-    if "estresado" in description or "ansioso" in description:
-        return "😰 Parece que estás estresado. Medita o escucha música relajante unos minutos."
-    if "feliz" in description or "bien" in description:
-        return "😄 Me alegra que te sientas bien. Mantén esa energía positiva."
-    return "💬 Gracias por compartir cómo te sientes. Recuerda que siempre puedes buscar ayuda profesional si lo necesitas."
+    """
+    Versión avanzada: usa Gemini para análisis de estado de ánimo
+    """
+    prompt = f"Analiza el estado de ánimo de esta persona y da un consejo breve de bienestar: '{description}'"
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        return response.content
+    except Exception as e:
+        logging.exception("Error en MoodCheckTool")
+        return "💬 No pude analizar tu estado de ánimo, pero recuerda cuidar de ti mismo."
 
 mood_tool = Tool(
     name="MoodCheckTool",
-    description="Analiza brevemente el estado de ánimo y da sugerencias de bienestar.",
+    description="Analiza el estado de ánimo con IA y da consejos de bienestar emocional.",
     func=mood_check_tool_func
 )
 
@@ -104,6 +111,7 @@ def weather_tool_func(ciudad: str) -> str:
             f"📖 Condición: {desc.capitalize()}"
         )
     except Exception as e:
+        logging.exception("Error en WeatherTool")
         return f"❌ Error al obtener el clima: {e}"
 
 weather_tool = Tool(
@@ -112,5 +120,7 @@ weather_tool = Tool(
     func=weather_tool_func
 )
 
+# ===============================
 # Lista de todas las tools
+# ===============================
 tools_list = [psych_tool, motivation_tool, mood_tool, weather_tool]
