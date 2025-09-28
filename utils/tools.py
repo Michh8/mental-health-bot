@@ -2,6 +2,7 @@ import requests
 import random
 import logging
 from langchain.tools import Tool
+from config import WEATHER_API_KEY
 
 # ===============================
 # Tool 1: Buscar centros psicológicos
@@ -66,11 +67,11 @@ motivation_tool = Tool(
 def mood_check_tool_func(description: str) -> str:
     description = description.lower()
     if "triste" in description or "deprimido" in description:
-        return "😢 Parece que te sientes triste. Te sugiero respirar profundamente 5 veces y dar un pequeño paseo."
+        return "😢 Parece que te sientes triste. Respira profundamente y da un pequeño paseo."
     if "estresado" in description or "ansioso" in description:
-        return "😰 Parece que estás estresado. Intenta meditar o escuchar música relajante durante 5-10 minutos."
+        return "😰 Parece que estás estresado. Medita o escucha música relajante unos minutos."
     if "feliz" in description or "bien" in description:
-        return "😄 Me alegra que te sientas bien. Mantén esa energía positiva y sigue cuidándote."
+        return "😄 Me alegra que te sientas bien. Mantén esa energía positiva."
     return "💬 Gracias por compartir cómo te sientes. Recuerda que siempre puedes buscar ayuda profesional si lo necesitas."
 
 mood_tool = Tool(
@@ -79,5 +80,37 @@ mood_tool = Tool(
     func=mood_check_tool_func
 )
 
-# Lista de tools
-tools_list = [psych_tool, motivation_tool, mood_tool]
+# ===============================
+# Tool 4: Clima
+# ===============================
+def weather_tool_func(ciudad: str) -> str:
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={ciudad}&appid={WEATHER_API_KEY}&units=metric&lang=es"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if data.get("cod") != 200:
+            return f"⚠️ Ciudad no encontrada: {ciudad}"
+
+        nombre = data["name"]
+        pais = data["sys"]["country"]
+        temp = data["main"]["temp"]
+        desc = data["weather"][0]["description"]
+        hum = data["main"]["humidity"]
+
+        return (
+            f"🌤️ Clima en {nombre}, {pais}:\n"
+            f"🌡️ Temperatura: {temp}°C\n"
+            f"💧 Humedad: {hum}%\n"
+            f"📖 Condición: {desc.capitalize()}"
+        )
+    except Exception as e:
+        return f"❌ Error al obtener el clima: {e}"
+
+weather_tool = Tool(
+    name="WeatherTool",
+    description="Obtiene clima de una ciudad",
+    func=weather_tool_func
+)
+
+# Lista de todas las tools
+tools_list = [psych_tool, motivation_tool, mood_tool, weather_tool]
