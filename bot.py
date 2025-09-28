@@ -16,7 +16,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 # Modelo Gemini
-llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=GEMINI_API_KEY)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro-latest",  # ✅ Corregido
+    google_api_key=GEMINI_API_KEY
+)
 
 # ===============================
 # Chat libre con Gemini
