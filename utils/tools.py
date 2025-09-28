@@ -20,7 +20,7 @@ def find_psych_centers(location: str) -> str:
     Mejora la búsqueda usando varios términos y reintentos.
     """
     try:
-        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental"]
+        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental", "hospital"]
         headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
         all_results = []
 
