@@ -9,7 +9,7 @@ from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
 # ===============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Soy tu bot de Salud Mental.\n\n"
+        "👋 ¡Hola! Soy tu bot de Salud Mental👋.\n\n"
         "Usa /help para ver lo que puedo hacer 🤖."
     )
 
