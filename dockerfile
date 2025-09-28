@@ -12,9 +12,7 @@ COPY . .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-# Variables de entorno (opcional)
-ENV TELEGRAM_TOKEN=tu_token
-ENV GEMINI_API_KEY=tu_api_key
+
 
 # Comando para iniciar el bot
 CMD ["python", "bot.py"]
