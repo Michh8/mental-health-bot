@@ -6,29 +6,45 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 from config import WEATHER_API_KEY, GEMINI_API_KEY
 
+# ===============================
 # Modelo Gemini para MoodCheck
+# ===============================
 llm = ChatGoogleGenerativeAI(model="gemini-pro", google_api_key=GEMINI_API_KEY)
 
 # ===============================
 # Tool 1: Buscar centros psicológicos
 # ===============================
 def find_psych_centers(location: str) -> str:
+    """
+    Busca psicólogos o clínicas psicológicas usando OpenStreetMap/Nominatim.
+    Mejora la búsqueda usando varios términos y reintentos.
+    """
     try:
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            "q": f"psicólogo {location}",  # mejora en la query
-            "format": "json",
-            "limit": 10
-        }
+        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental"]
         headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
-        response = requests.get(url, params=params, headers=headers, timeout=8)
-        results = response.json()
+        all_results = []
 
-        if not results:
-            return f"No encontré psicólogos o clínicas en '{location}'."
+        for term in search_terms:
+            url = "https://nominatim.openstreetmap.org/search"
+            params = {"q": f"{term} {location}", "format": "json", "limit": 10}
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            results = response.json()
+            all_results.extend(results)
+
+        # Eliminar duplicados por "display_name"
+        seen = set()
+        filtered = []
+        for r in all_results:
+            name = r.get("display_name", "")
+            if name not in seen:
+                filtered.append(r)
+                seen.add(name)
+
+        if not filtered:
+            return f"No encontré psicólogos o clínicas en '{location}'. Puedes intentar otra ciudad o buscar online."
 
         output = []
-        for r in results:
+        for r in filtered[:10]:  # máximo 10 resultados
             name = r.get("display_name", "Desconocido")
             lat = r.get("lat")
             lon = r.get("lon")
@@ -71,15 +87,24 @@ motivation_tool = Tool(
 # ===============================
 def mood_check_tool_func(description: str) -> str:
     """
-    Versión avanzada: usa Gemini para análisis de estado de ánimo
+    Analiza el estado de ánimo usando Gemini. 
+    Si falla, usa un análisis básico por palabras clave como fallback.
     """
     prompt = f"Analiza el estado de ánimo de esta persona y da un consejo breve de bienestar: '{description}'"
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
         return response.content
     except Exception as e:
-        logging.exception("Error en MoodCheckTool")
-        return "💬 No pude analizar tu estado de ánimo, pero recuerda cuidar de ti mismo."
+        logging.exception("Error en MoodCheckTool, usando fallback básico")
+        # Fallback básico
+        description = description.lower()
+        if "triste" in description or "deprimido" in description:
+            return "😢 Parece que te sientes triste. Respira profundamente y da un pequeño paseo."
+        if "estresado" in description or "ansioso" in description:
+            return "😰 Parece que estás estresado. Medita o escucha música relajante unos minutos."
+        if "feliz" in description or "bien" in description:
+            return "😄 Me alegra que te sientas bien. Mantén esa energía positiva."
+        return "💬 Gracias por compartir cómo te sientes. Recuerda que siempre puedes buscar ayuda profesional si lo necesitas."
 
 mood_tool = Tool(
     name="MoodCheckTool",
