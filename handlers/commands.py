@@ -2,15 +2,14 @@ import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
-from utils.tools import psych_tool, mood_tool, motivation_tool, weather_tool
+from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
 
 # ===============================
-# Comandos del bot
+# Comandos básicos
 # ===============================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Soy tu bot.\n\n"
+        "👋 ¡Hola! Soy tu bot de Salud Mental.\n\n"
         "Usa /help para ver lo que puedo hacer."
     )
 
@@ -22,8 +21,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/fecha - Fecha y hora actual\n"
         "/clima [ciudad] - Información meteorológica\n"
         "/motivacion - Mensaje motivacional\n"
-        "/mood [cómo te sientes] - Comprobación de ánimo\n"
-        "/centros [ubicación] - Buscar centros psicológicos"
+        "/mood [cómo te sientes] - Revisa tu estado de ánimo\n"
+        "/centros [ciudad] - Buscar psicólogos cercanos\n\n"
+        "También puedes escribirme cualquier mensaje y te responderé con Gemini 🤖"
     )
 
 async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,30 +42,33 @@ async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.exception("Error en /fecha")
         await update.message.reply_text("❌ Error al obtener la fecha. Intenta de nuevo.")
 
+# ===============================
+# Comandos que usan tools
+# ===============================
 async def clima(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❗ Usa /clima [ciudad]")
+        await update.message.reply_text("❗ Usa el formato: /clima [ciudad]")
         return
     ciudad = " ".join(context.args)
-    mensaje = weather_tool.func(ciudad)
-    await update.message.reply_text(mensaje)
+    resultado = weather_tool.run(ciudad)
+    await update.message.reply_text(resultado)
 
 async def motivacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mensaje = motivation_tool.func("motivacion")
-    await update.message.reply_text(mensaje)
+    resultado = motivation_tool.run("motivacion")
+    await update.message.reply_text(resultado)
 
 async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❗ Describe cómo te sientes. Ejemplo: /mood me siento ansioso")
+        await update.message.reply_text("❗ Describe cómo te sientes: /mood [tu estado]")
         return
-    descripcion = " ".join(context.args)
-    mensaje = mood_tool.func(descripcion)
-    await update.message.reply_text(mensaje)
+    estado = " ".join(context.args)
+    resultado = mood_tool.run(estado)
+    await update.message.reply_text(resultado)
 
 async def centros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❗ Indica una ciudad o ubicación. Ejemplo: /centros San Salvador")
+        await update.message.reply_text("❗ Usa el formato: /centros [ciudad]")
         return
-    location = " ".join(context.args)
-    mensaje = psych_tool.func(location)
-    await update.message.reply_text(mensaje)
+    ciudad = " ".join(context.args)
+    resultado = psych_tool.run(ciudad)
+    await update.message.reply_text(resultado)
