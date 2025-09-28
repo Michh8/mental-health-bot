@@ -94,9 +94,9 @@ async def run_webserver():
         await asyncio.sleep(3600)
 
 # ===============================
-# Main
+# Main (ahora asíncrona)
 # ===============================
-def main():
+async def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Comandos
@@ -115,7 +115,7 @@ def main():
     asyncio.create_task(run_webserver())
 
     print("🤖 Bot en ejecución...")
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
