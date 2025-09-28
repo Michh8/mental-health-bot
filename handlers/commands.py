@@ -1,8 +1,8 @@
 import logging
+from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
-from datetime import datetime
-from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
+from utils.tools import psych_tool, mood_tool, motivation_tool, weather_tool
 
 # ===============================
 # Comandos del bot
@@ -10,7 +10,7 @@ from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 ¡Hola! Soy tu bot de salud mental.\n\n"
+        "👋 ¡Hola! Soy tu bot.\n\n"
         "Usa /help para ver lo que puedo hacer."
     )
 
@@ -22,9 +22,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/fecha - Fecha y hora actual\n"
         "/clima [ciudad] - Información meteorológica\n"
         "/motivacion - Mensaje motivacional\n"
-        "/mood [describe cómo te sientes] - Comprobación de ánimo\n"
-        "/centros [ubicación] - Buscar centros psicológicos cercanos\n\n"
-        "También puedes escribirme cualquier mensaje y te responderé con Gemini 🤖"
+        "/mood [cómo te sientes] - Comprobación de ánimo\n"
+        "/centros [ubicación] - Buscar centros psicológicos"
     )
 
 async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,14 +44,14 @@ async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def clima(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❗ Usa el formato: /clima [ciudad]")
+        await update.message.reply_text("❗ Usa /clima [ciudad]")
         return
     ciudad = " ".join(context.args)
     mensaje = weather_tool.func(ciudad)
     await update.message.reply_text(mensaje)
 
 async def motivacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mensaje = motivation_tool.func("")
+    mensaje = motivation_tool.func("motivacion")
     await update.message.reply_text(mensaje)
 
 async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,8 +64,8 @@ async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def centros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❗ Indica una ubicación. Ejemplo: /centros San Salvador")
+        await update.message.reply_text("❗ Indica una ciudad o ubicación. Ejemplo: /centros San Salvador")
         return
-    ubicacion = " ".join(context.args)
-    mensaje = psych_tool.func(ubicacion)
+    location = " ".join(context.args)
+    mensaje = psych_tool.func(location)
     await update.message.reply_text(mensaje)
