@@ -10,7 +10,7 @@ from config import WEATHER_API_KEY, GEMINI_API_KEY
 # Modelo Gemini para MoodCheck
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro-latest",  # ✅ Corregido
+    model="gemini-2.5-pro",  # ✅ Corregido
     google_api_key=GEMINI_API_KEY
 )
 

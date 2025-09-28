@@ -1,10 +1,34 @@
 import os
+import sys
 import logging
+import pkg_resources
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
+import google.generativeai as genai  # ✅ Para listar modelos de Gemini
+
+# ===============================
+# Verificación de versiones
+# ===============================
+print("🔍 Verificando entorno...")
+
+print(f"Python versión: {sys.version}")
+
+required = {
+    "python-telegram-bot": ">=20.0",
+    "langchain-google-genai": ">=0.0.9",
+    "python-dotenv": ">=1.0.0",
+    "google-generativeai": ">=0.8.3"
+}
+
+for package, version in required.items():
+    try:
+        installed_version = pkg_resources.get_distribution(package).version
+        print(f"{package}: {installed_version} (requerido {version})")
+    except pkg_resources.DistributionNotFound:
+        print(f"⚠️ {package} no está instalado")
 
 # ===============================
 # Configuración
@@ -15,9 +39,26 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
+# ===============================
+# Probar conexión con Gemini
+# ===============================
+if GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        print("\n✅ Conectado a Gemini correctamente. Modelos disponibles:")
+        for m in genai.list_models():
+            if "generateContent" in m.supported_generation_methods:
+                print(" -", m.name)
+    except Exception as e:
+        print("❌ Error al conectar con Gemini:", e)
+else:
+    print("⚠️ GEMINI_API_KEY no está configurada en el .env")
+
+# ===============================
 # Modelo Gemini
+# ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro-latest",  # ✅ Corregido
+    model="gemini-2.5-pro",  # ✅ Modelo principal
     google_api_key=GEMINI_API_KEY
 )
 
