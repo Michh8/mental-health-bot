@@ -121,7 +121,7 @@ async def main():
         run_webserver()
     )
 
-if _name_ == "_main_":
+if __name__ == "_main_":
     asyncio.run(main())
 
     #probando para commmit again 
