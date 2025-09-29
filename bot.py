@@ -69,12 +69,11 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # ===============================
-# Chat libre con Gemini (async-safe)
+# Chat libre con Gemini
 # ===============================
 async def chat(update, context):
     try:
         user_message = update.message.text
-        # Ejecutar invoke de Gemini en un thread para no bloquear el loop
         response = await asyncio.to_thread(lambda: llm.invoke([HumanMessage(content=user_message)]))
         await update.message.reply_text(response.content)
     except Exception:
@@ -99,13 +98,12 @@ async def run_webserver():
         await asyncio.sleep(3600)
 
 # ===============================
-# Main async para evitar warnings
+# Main con asyncio.gather
 # ===============================
-async def start_bot():
+async def main():
     if not TELEGRAM_TOKEN:
         raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
 
-    # Crear bot
     bot_app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Handlers de comandos
@@ -117,14 +115,16 @@ async def start_bot():
     bot_app.add_handler(CommandHandler("mood", commands.mood))
     bot_app.add_handler(CommandHandler("centros", commands.centros))
 
-    # Handler de chat libre
+    # Chat libre
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # Ejecutar servidor web paralelo
-    asyncio.create_task(run_webserver())
+    print("🤖 Bot en ejecución con polling y servidor web...")
 
-    print("🤖 Bot en ejecución con polling...")
-    await bot_app.run_polling()
+    # Ejecutar bot y servidor web en paralelo
+    await asyncio.gather(
+        bot_app.run_polling(),
+        run_webserver()
+    )
 
 if __name__ == "__main__":
-    asyncio.run(start_bot())
+    asyncio.run(main())
