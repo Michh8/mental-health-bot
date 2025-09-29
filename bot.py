@@ -1,255 +1,104 @@
 
-#!/usr/bin/env python3
-# bot.py - versión Render-friendly y completa con handlers
-
 import os
 import sys
-import asyncio
 import logging
-import signal
+import asyncio
 from dotenv import load_dotenv
-from aiohttp import web
-
-# telegram / langchain / google generative
-from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-)
-# intenta usar handlers externos si los tienes
-try:
-    from handlers import commands as custom_handlers
-except Exception:
-    custom_handlers = None
-
-# langchain-google-genai wrapper (tu dependencia)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from handlers import commands  # 👈 tus handlers personalizados
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 import google.generativeai as genai
+from aiohttp import web
 
-# importlib.metadata en lugar de pkg_resources
-try:
-    from importlib.metadata import version, PackageNotFoundError
-except Exception:
-    version = lambda pkg: None
-    PackageNotFoundError = Exception
-
-# ---------- Config y logging ----------
-load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PORT = int(os.environ.get("PORT", 10000))
-
+# ===============================
+# Logging
+# ===============================
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
 
-print("🔍 Verificando entorno...")
-print("Python:", sys.version.splitlines()[0])
-for pkg in (
-    "python-telegram-bot",
-    "langchain-google-genai",
-    "python-dotenv",
-    "google-generativeai",
-    "aiohttp",
-):
-    try:
-        print(f"{pkg}: {version(pkg)}")
-    except PackageNotFoundError:
-        print(f"⚠️ {pkg} no está instalado")
+# ===============================
+# Cargar variables de entorno
+# ===============================
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ---------- Conexión a Gemini (opcional) ----------
+if not BOT_TOKEN:
+    logger.error("❌ No se encontró BOT_TOKEN en el entorno")
+    sys.exit(1)
+
+if not GEMINI_API_KEY:
+    logger.warning("⚠️ No se encontró GEMINI_API_KEY en el entorno")
+
+# ===============================
+# Inicializar Gemini
+# ===============================
 if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        print("✅ GEMINI configurado.")
-    except Exception as e:
-        print("❌ Error al configurar GEMINI:", e)
+    genai.configure(api_key=GEMINI_API_KEY)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", google_api_key=GEMINI_API_KEY)
+    logger.info("✅ GEMINI configurado.")
 else:
-    print("⚠️ GEMINI_API_KEY no configurada; funcionalidades LLM quedarán limitadas.")
+    llm = None
 
-# Crea el wrapper LLM (si no lo usas, está bien)
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro", google_api_key=GEMINI_API_KEY
-)
+# ===============================
+# Handlers de ejemplo base
+# ===============================
+async def start(update, context):
+    await update.message.reply_text("Hola 👋 Soy tu bot con aiohttp + Telegram 🤖")
 
-# ---------- Handlers ----------
-if custom_handlers:
-    def attach_custom_handlers(app: Application):
-        try:
-            app.add_handler(CommandHandler("start", custom_handlers.start))
-        except Exception:
-            logger.debug("No hay start en custom handlers")
-        try:
-            app.add_handler(CommandHandler("help", custom_handlers.help_command))
-        except Exception:
-            logger.debug("No hay help_command en custom handlers")
-        for name in ("fecha", "clima", "motivacion", "mood", "centros"):
-            if hasattr(custom_handlers, name):
-                app.add_handler(CommandHandler(name, getattr(custom_handlers, name)))
-else:
-    async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "¡Hola! 🤖 Bot en Render. Usa /help para ver comandos."
-        )
+async def echo(update, context):
+    text = update.message.text
+    await update.message.reply_text(f"Me dijiste: {text}")
 
-    async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "Comandos disponibles: /start /help /fecha /clima /motivacion /mood /centros"
-        )
+# ===============================
+# Configuración de Telegram Bot
+# ===============================
+async def run_bot():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        from datetime import datetime
-        await update.message.reply_text(
-            f"Fecha y hora actuales: {datetime.utcnow().isoformat()} UTC"
-        )
+    # Handlers base
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    async def clima(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "Funcionalidad de clima no configurada. Agrega tu implementación."
-        )
+    # Handlers personalizados (mantengo los tuyos 👇)
+    commands.register_handlers(app)
 
-    async def motivacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Eres capaz de todo 💪")
+    # Inicializar sin run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    logger.info("🤖 Bot de Telegram corriendo con polling...")
 
-    async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Estado de ánimo: estable :)")
+# ===============================
+# Servidor aiohttp
+# ===============================
+async def run_web():
+    async def health(request):
+        return web.Response(text="✅ Servidor aiohttp activo")
 
-    async def centros(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Centros: información no configurada.")
+    web_app = web.Application()
+    web_app.router.add_get("/", health)
 
-    def attach_custom_handlers(app: Application):
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("help", help_command))
-        app.add_handler(CommandHandler("fecha", fecha))
-        app.add_handler(CommandHandler("clima", clima))
-        app.add_handler(CommandHandler("motivacion", motivacion))
-        app.add_handler(CommandHandler("mood", mood))
-        app.add_handler(CommandHandler("centros", centros))
-
-
-# ---------- Handler de chat libre ----------
-async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = (update.message.text or "").strip()
-    if not user_text:
-        await update.message.reply_text("No recibí texto.")
-        return
-    try:
-        response = await asyncio.to_thread(
-            lambda: llm.invoke([HumanMessage(content=user_text)])
-        )
-        text = getattr(response, "content", None) or str(response)
-        await update.message.reply_text(text)
-    except Exception as e:
-        logger.exception("Error llamando al LLM:")
-        await update.message.reply_text("⚠️ Error procesando tu mensaje (LLM).")
-
-
-# ---------- Servidor web para healthchecks ----------
-async def handle_root(request):
-    return web.Response(text="Bot activo ✅")
-
-
-async def run_webserver(stop_event: asyncio.Event):
-    app = web.Application()
-    app.router.add_get("/", handle_root)
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
     await site.start()
-    logger.info("🌐 Webserver escuchando en puerto %s", PORT)
-    try:
-        await stop_event.wait()
-    finally:
-        logger.info("🔻 Deteniendo webserver...")
-        await runner.cleanup()
+    logger.info("🌐 Servidor aiohttp iniciado en puerto 8080")
 
-
-# ---------- Main ----------
+# ===============================
+# Main
+# ===============================
 async def main():
-    if not TELEGRAM_TOKEN:
-        raise RuntimeError("❌ TELEGRAM_TOKEN no configurado en .env o variables de entorno")
+    await asyncio.gather(run_bot(), run_web())
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # Adjunta handlers
-    attach_custom_handlers(app)
-
-    # Handler de chat libre
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
-
-    stop_event = asyncio.Event()
-    loop = asyncio.get_running_loop()
-
-    polling_task = asyncio.create_task(app.run_polling())
-    web_task = asyncio.create_task(run_webserver(stop_event))
-
-    def _shutdown_signal():
-        logger.info("🔔 Señal de apagado recibida, iniciando shutdown...")
-        if not stop_event.is_set():
-            stop_event.set()
-        try:
-            asyncio.create_task(app.shutdown())
-        except Exception as e:
-            logger.debug("No se pudo programar app.shutdown(): %s", e)
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, _shutdown_signal)
-        except NotImplementedError:
-            pass
-
-    logger.info("🤖 Bot + Webserver arrancando (Render-friendly).")
-
-    done, pending = await asyncio.wait(
-        {polling_task, web_task}, return_when=asyncio.FIRST_EXCEPTION
-    )
-
-    for t in done:
-        if t.cancelled():
-            continue
-        exc = t.exception()
-        if exc:
-            logger.exception("Tarea finalizó con excepción:")
-            try:
-                await app.shutdown()
-            except Exception:
-                logger.debug("app.shutdown() falló durante manejo de excepción")
-            raise exc
-
-    logger.info("✅ Esperando cierre ordenado de tareas...")
-    for t in pending:
-        try:
-            t.cancel()
-        except Exception:
-            pass
-
-    try:
-        await app.shutdown()
-    except Exception:
-        logger.debug("app.shutdown() lanzó durante apagado final")
-
-    logger.info("Salida completa. Bye.")
-
-
-# ---------- Entrypoint (Render-friendly) ----------
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except RuntimeError as e:
-        logger.warning(
-            "asyncio.run() falló (%s). Loop ya corriendo, usando create_task(main()).", e
-        )
-        loop = asyncio.get_event_loop()
-        loop.create_task(main())
+    except Exception as e:
+        logger.error(f"Error al iniciar: {e}", exc_info=True)
 
-        import threading
-        try:
-            threading.Event().wait()
-        except (KeyboardInterrupt, SystemExit):
-            logger.info("Interrupción recibida, terminando.")
