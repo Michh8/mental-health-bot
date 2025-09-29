@@ -97,8 +97,8 @@ def main():
         app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
-            url_path=TELEGRAM_TOKEN,
-            webhook_url=f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}",
+            url_path=f"webhook/{TELEGRAM_TOKEN}",  # <-- aquí
+            webhook_url=f"{WEBHOOK_URL}/webhook/{TELEGRAM_TOKEN}",  # <-- y aquí
         )
 
 
