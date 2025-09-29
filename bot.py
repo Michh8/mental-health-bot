@@ -8,8 +8,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
-import google.generativeai as genai  # ✅ Para listar modelos de Gemini
-from aiohttp import web  # ✅ Servidor web para mantener vivo el bot
+import google.generativeai as genai
+from aiohttp import web
 
 # ===============================
 # Verificación de versiones
@@ -37,6 +37,7 @@ for package, version in required.items():
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+PORT = int(os.environ.get("PORT", 10000))
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -44,7 +45,7 @@ logging.basicConfig(
 )
 
 # ===============================
-# Probar conexión con Gemini
+# Conexión a Gemini
 # ===============================
 if GEMINI_API_KEY:
     try:
@@ -56,30 +57,31 @@ if GEMINI_API_KEY:
     except Exception as e:
         print("❌ Error al conectar con Gemini:", e)
 else:
-    print("⚠️ GEMINI_API_KEY no está configurada en el .env")
+    print("⚠️ GEMINI_API_KEY no está configurada en .env")
 
 # ===============================
 # Modelo Gemini
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",  # ✅ Modelo principal
+    model="gemini-2.5-pro",
     google_api_key=GEMINI_API_KEY
 )
 
 # ===============================
-# Chat libre con Gemini
+# Chat libre con Gemini (async-safe)
 # ===============================
 async def chat(update, context):
     try:
         user_message = update.message.text
-        response = llm.invoke([HumanMessage(content=user_message)])
+        # Ejecutar invoke de Gemini en un thread para no bloquear el loop
+        response = await asyncio.to_thread(lambda: llm.invoke([HumanMessage(content=user_message)]))
         await update.message.reply_text(response.content)
-    except Exception as e:
+    except Exception:
         logging.exception("Error en chat Gemini")
         await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
 
 # ===============================
-# Servidor web para Render / Railway
+# Servidor web mínimo (ping)
 # ===============================
 async def handle(request):
     return web.Response(text="Bot activo ✅")
@@ -87,22 +89,25 @@ async def handle(request):
 async def run_webserver():
     app = web.Application()
     app.router.add_get("/", handle)
-    port = int(os.environ.get("PORT", 10000))
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    print(f"🌐 Servidor web corriendo en puerto {port}")
+    print(f"🌐 Servidor web corriendo en puerto {PORT}")
     while True:
         await asyncio.sleep(3600)
 
 # ===============================
-# Main corregido (sin asyncio.run dentro de run_polling)
+# Main
 # ===============================
 def main():
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
+
+    # Crear bot
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Comandos
+    # Handlers de comandos
     app.add_handler(CommandHandler("start", commands.start))
     app.add_handler(CommandHandler("help", commands.help_command))
     app.add_handler(CommandHandler("fecha", commands.fecha))
@@ -111,15 +116,15 @@ def main():
     app.add_handler(CommandHandler("mood", commands.mood))
     app.add_handler(CommandHandler("centros", commands.centros))
 
-    # Chat libre
+    # Handler de chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # 🚀 Servidor web en paralelo
-    asyncio.get_event_loop().create_task(run_webserver())
+    # Ejecutar servidor web paralelo
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_webserver())
 
-    print("🤖 Bot en ejecución...")
-    app.run_polling()  # <- ya maneja el loop
-
+    print("🤖 Bot en ejecución con polling...")
+    app.run_polling()  # Esto mantiene el bot activo
 
 if __name__ == "__main__":
     main()
