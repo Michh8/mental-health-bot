@@ -29,7 +29,7 @@ for package, version in required.items():
         installed_version = pkg_resources.get_distribution(package).version
         print(f"{package}: {installed_version} (requerido {version})")
     except pkg_resources.DistributionNotFound:
-        print(f"⚠️ {package} no está instalado")
+        print(f"⚠ {package} no está instalado")
 
 # ===============================
 # Configuración
@@ -56,7 +56,7 @@ if GEMINI_API_KEY:
     except Exception as e:
         print("❌ Error al conectar con Gemini:", e)
 else:
-    print("⚠️ GEMINI_API_KEY no está configurada en el .env")
+    print("⚠ GEMINI_API_KEY no está configurada en el .env")
 
 # ===============================
 # Modelo Gemini
@@ -76,7 +76,7 @@ async def chat(update, context):
         await update.message.reply_text(response.content)
     except Exception as e:
         logging.exception("Error en chat Gemini")
-        await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
+        await update.message.reply_text("⚠ Error al procesar tu mensaje con Gemini.")
 
 # ===============================
 # Servidor web para Render / Railway
@@ -93,13 +93,13 @@ async def run_webserver():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     print(f"🌐 Servidor web corriendo en puerto {port}")
-    while True:
-        await asyncio.sleep(3600)
+    # Mantener activo mientras el loop viva
+    await asyncio.Event().wait()
 
 # ===============================
-# Main corregido (sin asyncio.run dentro de run_polling)
+# Main corregido (polling + webserver)
 # ===============================
-def main():
+async def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Comandos
@@ -114,12 +114,12 @@ def main():
     # Chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # 🚀 Servidor web en paralelo
-    asyncio.get_event_loop().create_task(run_webserver())
-
     print("🤖 Bot en ejecución...")
-    app.run_polling()  # <- ya maneja el loop
+    # Ejecutar polling y servidor web en paralelo
+    await asyncio.gather(
+        app.run_polling(close_loop=False),
+        run_webserver()
+    )
 
-
-if __name__ == "__main__":
-    main()
+if __name__ == "_main_":
+    asyncio.run(main())
