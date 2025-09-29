@@ -1,4 +1,4 @@
-```python
+
 import requests
 import random
 import logging
@@ -158,4 +158,3 @@ weather_tool = Tool(
 # Lista de todas las tools
 # ===============================
 tools_list = [psych_tool, motivation_tool, mood_tool, weather_tool]
-```
