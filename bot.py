@@ -1,4 +1,3 @@
-
 import os
 import sys
 import logging
@@ -9,8 +8,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
-import google.generativeai as genai
-from aiohttp import web
+import google.generativeai as genai  # ✅ Para listar modelos de Gemini
+from aiohttp import web  # ✅ Servidor web para mantener vivo el bot
 
 # ===============================
 # Verificación de versiones
@@ -63,7 +62,7 @@ else:
 # Modelo Gemini
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",
+    model="gemini-2.5-pro",  # ✅ Modelo principal
     google_api_key=GEMINI_API_KEY
 )
 
@@ -80,7 +79,7 @@ async def chat(update, context):
         await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
 
 # ===============================
-# Servidor web (Render/Railway)
+# Servidor web para Render / Railway
 # ===============================
 async def handle(request):
     return web.Response(text="Bot activo ✅")
@@ -98,12 +97,12 @@ async def run_webserver():
         await asyncio.sleep(3600)
 
 # ===============================
-# Main corregido
+# Main corregido (sin asyncio.run dentro de run_polling)
 # ===============================
-async def main():
+def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Handlers de comandos
+    # Comandos
     app.add_handler(CommandHandler("start", commands.start))
     app.add_handler(CommandHandler("help", commands.help_command))
     app.add_handler(CommandHandler("fecha", commands.fecha))
@@ -112,18 +111,15 @@ async def main():
     app.add_handler(CommandHandler("mood", commands.mood))
     app.add_handler(CommandHandler("centros", commands.centros))
 
-    # Chat libre con Gemini
+    # Chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # Iniciar bot y servidor web en paralelo
-    await asyncio.gather(
-        run_webserver(),
-        app.run_polling()
-    )
+    # 🚀 Servidor web en paralelo
+    asyncio.get_event_loop().create_task(run_webserver())
+
+    print("🤖 Bot en ejecución...")
+    app.run_polling()  # <- ya maneja el loop
+
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except Exception as e:
-        logging.error(f"❌ Error al iniciar: {e}", exc_info=True)
-
+    main()
