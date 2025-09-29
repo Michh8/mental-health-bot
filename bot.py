@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Cargar variables de entorno
 # ===============================
 load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not BOT_TOKEN:
