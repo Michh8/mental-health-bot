@@ -21,7 +21,8 @@ required = {
     "python-telegram-bot": ">=20.0",
     "langchain-google-genai": ">=0.0.9",
     "python-dotenv": ">=1.0.0",
-    "google-generativeai": ">=0.8.3"
+    "google-generativeai": ">=0.8.3",
+    "aiohttp": ">=3.8.0"
 }
 
 for package, version in required.items():
@@ -98,33 +99,32 @@ async def run_webserver():
         await asyncio.sleep(3600)
 
 # ===============================
-# Main
+# Main async para evitar warnings
 # ===============================
-def main():
+async def start_bot():
     if not TELEGRAM_TOKEN:
         raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
 
     # Crear bot
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    bot_app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Handlers de comandos
-    app.add_handler(CommandHandler("start", commands.start))
-    app.add_handler(CommandHandler("help", commands.help_command))
-    app.add_handler(CommandHandler("fecha", commands.fecha))
-    app.add_handler(CommandHandler("clima", commands.clima))
-    app.add_handler(CommandHandler("motivacion", commands.motivacion))
-    app.add_handler(CommandHandler("mood", commands.mood))
-    app.add_handler(CommandHandler("centros", commands.centros))
+    bot_app.add_handler(CommandHandler("start", commands.start))
+    bot_app.add_handler(CommandHandler("help", commands.help_command))
+    bot_app.add_handler(CommandHandler("fecha", commands.fecha))
+    bot_app.add_handler(CommandHandler("clima", commands.clima))
+    bot_app.add_handler(CommandHandler("motivacion", commands.motivacion))
+    bot_app.add_handler(CommandHandler("mood", commands.mood))
+    bot_app.add_handler(CommandHandler("centros", commands.centros))
 
     # Handler de chat libre
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
     # Ejecutar servidor web paralelo
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_webserver())
+    asyncio.create_task(run_webserver())
 
     print("🤖 Bot en ejecución con polling...")
-    app.run_polling()  # Esto mantiene el bot activo
+    await bot_app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(start_bot())
