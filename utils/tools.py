@@ -1,3 +1,4 @@
+```python
 import requests
 import random
 import logging
@@ -61,22 +62,37 @@ psych_tool = Tool(
 )
 
 # ===============================
-# Tool 2: Motivación / bienestar
+# Tool 2: Motivación / bienestar (Mejorada)
 # ===============================
 def motivation_tool_func(query: str) -> str:
-    frases = [
-        "💪 ¡Tú puedes con todo!",
-        "🌟 Nunca olvides lo valioso que eres.",
-        "🚀 Cada día es una nueva oportunidad.",
-        "🔥 No te rindas, lo mejor está por venir.",
-        "🧘‍♂️ Respira profundo, todo estará bien.",
-        "💖 Tómate un momento para ti y tu bienestar."
-    ]
-    return random.choice(frases)
+    prompt = f"""
+Eres un asistente de apoyo emocional breve. 
+Tu tarea es:
+1. Dar un mensaje de motivación cálido y comprensivo.
+2. Sugerir una acción práctica para mejorar el bienestar emocional 
+   (ej. respirar profundo, escribir un diario, salir a caminar).
+3. Si detectas señales de desesperanza extrema o pensamientos de autolesión, 
+   responde de forma empática y sugiere buscar ayuda profesional o llamar a una línea de emergencia, 
+   sin dar consejos peligrosos.
+
+Usuario: "{query}"
+Responde en un tono positivo, breve y en español.
+"""
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        return response.content
+    except Exception as e:
+        logging.exception("Error en MotivationTool, usando fallback básico")
+        frases = [
+            "💖 Recuerda que no estás solo/a. Hablar con alguien de confianza puede ayudarte.",
+            "🧘 Respira profundo tres veces, eso ayuda a calmar tu mente.",
+            "🌟 Cada día trae una nueva oportunidad para avanzar un poquito más."
+        ]
+        return random.choice(frases)
 
 motivation_tool = Tool(
     name="MotivationTool",
-    description="Proporciona mensajes motivacionales y consejos de bienestar emocional.",
+    description="Proporciona mensajes motivacionales personalizados y consejos prácticos de bienestar emocional usando IA.",
     func=motivation_tool_func
 )
 
@@ -142,3 +158,4 @@ weather_tool = Tool(
 # Lista de todas las tools
 # ===============================
 tools_list = [psych_tool, motivation_tool, mood_tool, weather_tool]
+```
