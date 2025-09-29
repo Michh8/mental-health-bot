@@ -1,130 +1,46 @@
 import os
-import sys
 import logging
-import pkg_resources
-import asyncio
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from handlers import commands
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.schema import HumanMessage
-import google.generativeai as genai
-from aiohttp import web
 
-# ===============================
-# Verificación de versiones
-# ===============================
-print("🔍 Verificando entorno...")
-print(f"Python versión: {sys.version}")
-
-required = {
-    "python-telegram-bot": ">=20.0",
-    "langchain-google-genai": ">=0.0.9",
-    "python-dotenv": ">=1.0.0",
-    "google-generativeai": ">=0.8.3",
-    "aiohttp": ">=3.8.0"
-}
-
-for package, version in required.items():
-    try:
-        installed_version = pkg_resources.get_distribution(package).version
-        print(f"{package}: {installed_version} (requerido {version})")
-    except pkg_resources.DistributionNotFound:
-        print(f"⚠️ {package} no está instalado")
-
-# ===============================
-# Configuración
-# ===============================
+# ========================
+# Configuración básica
+# ========================
 load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PORT = int(os.environ.get("PORT", 10000))
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
-# ===============================
-# Conexión a Gemini
-# ===============================
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        print("\n✅ Conectado a Gemini correctamente. Modelos disponibles:")
-        for m in genai.list_models():
-            if "generateContent" in m.supported_generation_methods:
-                print(" -", m.name)
-    except Exception as e:
-        print("❌ Error al conectar con Gemini:", e)
-else:
-    print("⚠️ GEMINI_API_KEY no está configurada en .env")
+# ========================
+# Handlers
+# ========================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Hola! 🤖 Estoy vivo en Render.")
 
-# ===============================
-# Modelo Gemini
-# ===============================
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",
-    google_api_key=GEMINI_API_KEY
-)
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(update.message.text)
 
-# ===============================
-# Chat libre con Gemini
-# ===============================
-async def chat(update, context):
-    try:
-        user_message = update.message.text
-        response = await asyncio.to_thread(lambda: llm.invoke([HumanMessage(content=user_message)]))
-        await update.message.reply_text(response.content)
-    except Exception:
-        logging.exception("Error en chat Gemini")
-        await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
+# ========================
+# Main
+# ========================
+def main():
+    if not TOKEN:
+        raise ValueError("❌ TELEGRAM_BOT_TOKEN no está definido en .env o Render")
 
-# ===============================
-# Servidor web mínimo (ping)
-# ===============================
-async def handle(request):
-    return web.Response(text="Bot activo ✅")
+    app = Application.builder().token(TOKEN).build()
 
-async def run_webserver():
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-    print(f"🌐 Servidor web corriendo en puerto {PORT}")
-    while True:
-        await asyncio.sleep(3600)
+    # Comandos
+    app.add_handler(CommandHandler("start", start))
 
-# ===============================
-# Main con asyncio.gather
-# ===============================
-async def main():
-    if not TELEGRAM_TOKEN:
-        raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
+    # Mensajes normales
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
-    bot_app = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # Handlers de comandos
-    bot_app.add_handler(CommandHandler("start", commands.start))
-    bot_app.add_handler(CommandHandler("help", commands.help_command))
-    bot_app.add_handler(CommandHandler("fecha", commands.fecha))
-    bot_app.add_handler(CommandHandler("clima", commands.clima))
-    bot_app.add_handler(CommandHandler("motivacion", commands.motivacion))
-    bot_app.add_handler(CommandHandler("mood", commands.mood))
-    bot_app.add_handler(CommandHandler("centros", commands.centros))
-
-    # Chat libre
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
-
-    print("🤖 Bot en ejecución con polling y servidor web...")
-
-    # Ejecutar bot y servidor web en paralelo
-    await asyncio.gather(
-        bot_app.run_polling(),
-        run_webserver()
-    )
+    # 🚀 Importante: solo esto, sin asyncio.run
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
