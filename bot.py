@@ -176,9 +176,7 @@ async def run_webserver(stop_event: asyncio.Event):
 # ---------- Main ----------
 async def main():
     if not TELEGRAM_TOKEN:
-        raise RuntimeError(
-            "❌ TELEGRAM_TOKEN no configurado en .env o variables de entorno"
-        )
+        raise RuntimeError("❌ TELEGRAM_TOKEN no configurado en .env o variables de entorno")
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
@@ -191,7 +189,8 @@ async def main():
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    polling_task = asyncio.create_task(asyncio.to_thread(app.run_polling))
+    # ✅ Ya no lo mandamos a otro thread
+    polling_task = asyncio.create_task(app.run_polling())
     web_task = asyncio.create_task(run_webserver(stop_event))
 
     def _shutdown_signal():
