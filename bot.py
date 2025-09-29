@@ -1,25 +1,42 @@
 import os
 import sys
 import logging
+import pkg_resources
 import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
-import google.generativeai as genai
+import google.generativeai as genai  # ✅ Para listar modelos de Gemini
+from aiohttp import web  # ✅ Servidor web para mantener vivo el bot
 
 # ===============================
-# Configuración
+# Verificación de versiones
 # ===============================
 print("🔍 Verificando entorno...")
 print(f"Python versión: {sys.version}")
 
+required = {
+    "python-telegram-bot": ">=20.0",
+    "langchain-google-genai": ">=0.0.9",
+    "python-dotenv": ">=1.0.0",
+    "google-generativeai": ">=0.8.3"
+}
+
+for package, version in required.items():
+    try:
+        installed_version = pkg_resources.get_distribution(package).version
+        print(f"{package}: {installed_version} (requerido {version})")
+    except pkg_resources.DistributionNotFound:
+        print(f"⚠️ {package} no está instalado")
+
+# ===============================
+# Configuración
+# ===============================
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PORT = int(os.environ.get("PORT", 10000))
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # ej: https://tu-app.onrender.com
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -45,32 +62,47 @@ else:
 # Modelo Gemini
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",
+    model="gemini-2.5-pro",  # ✅ Modelo principal
     google_api_key=GEMINI_API_KEY
 )
 
 # ===============================
-# Handlers
+# Chat libre con Gemini
 # ===============================
 async def chat(update, context):
     try:
         user_message = update.message.text
         response = llm.invoke([HumanMessage(content=user_message)])
         await update.message.reply_text(response.content)
-    except Exception:
+    except Exception as e:
         logging.exception("Error en chat Gemini")
         await update.message.reply_text("⚠️ Error al procesar tu mensaje con Gemini.")
 
 # ===============================
-# Main con Webhook
+# Servidor web para Render / Railway
+# ===============================
+async def handle(request):
+    return web.Response(text="Bot activo ✅")
+
+async def run_webserver():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    port = int(os.environ.get("PORT", 10000))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"🌐 Servidor web corriendo en puerto {port}")
+    while True:
+        await asyncio.sleep(3600)
+
+# ===============================
+# Main corregido (sin asyncio.run dentro de run_polling)
 # ===============================
 def main():
-    if not TELEGRAM_TOKEN:
-        raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
-
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Handlers
+    # Comandos
     app.add_handler(CommandHandler("start", commands.start))
     app.add_handler(CommandHandler("help", commands.help_command))
     app.add_handler(CommandHandler("fecha", commands.fecha))
@@ -78,28 +110,15 @@ def main():
     app.add_handler(CommandHandler("motivacion", commands.motivacion))
     app.add_handler(CommandHandler("mood", commands.mood))
     app.add_handler(CommandHandler("centros", commands.centros))
+
+    # Chat libre
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # ==============================
-    # OPCIÓN 1: USAR POLLING (desarrollo local)
-    # ==============================
-    if os.getenv("USE_POLLING", "false").lower() == "true":
-        print("▶️ Iniciando bot en modo polling...")
-        app.run_polling()
-    else:
-        # ==============================
-        # OPCIÓN 2: USAR WEBHOOK (producción en Render/Railway)
-        # ==============================
-        if not WEBHOOK_URL:
-            raise RuntimeError("❌ Debes definir WEBHOOK_URL en el .env para usar webhook")
+    # 🚀 Servidor web en paralelo
+    asyncio.get_event_loop().create_task(run_webserver())
 
-        print(f"🤖 Bot en ejecución con webhook en {WEBHOOK_URL}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=f"webhook/{TELEGRAM_TOKEN}",  # <-- aquí
-            webhook_url=f"{WEBHOOK_URL}/webhook/{TELEGRAM_TOKEN}",  # <-- y aquí
-        )
+    print("🤖 Bot en ejecución...")
+    app.run_polling()  # <- ya maneja el loop
 
 
 if __name__ == "__main__":
