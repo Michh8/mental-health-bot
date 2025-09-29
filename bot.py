@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # bot.py - versión Render-friendly y completa con handlers
 
@@ -79,7 +80,6 @@ llm = ChatGoogleGenerativeAI(
 
 # ---------- Handlers ----------
 if custom_handlers:
-    # Se asume que custom_handlers exporta funciones: start, help_command, fecha, clima, motivacion, mood, centros
     def attach_custom_handlers(app: Application):
         try:
             app.add_handler(CommandHandler("start", custom_handlers.start))
@@ -89,12 +89,10 @@ if custom_handlers:
             app.add_handler(CommandHandler("help", custom_handlers.help_command))
         except Exception:
             logger.debug("No hay help_command en custom handlers")
-        # opcionales
         for name in ("fecha", "clima", "motivacion", "mood", "centros"):
             if hasattr(custom_handlers, name):
                 app.add_handler(CommandHandler(name, getattr(custom_handlers, name)))
 else:
-    # Handlers por defecto
     async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "¡Hola! 🤖 Bot en Render. Usa /help para ver comandos."
@@ -107,7 +105,6 @@ else:
 
     async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from datetime import datetime
-
         await update.message.reply_text(
             f"Fecha y hora actuales: {datetime.utcnow().isoformat()} UTC"
         )
@@ -189,7 +186,6 @@ async def main():
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    # ✅ Ya no lo mandamos a otro thread
     polling_task = asyncio.create_task(app.run_polling())
     web_task = asyncio.create_task(run_webserver(stop_event))
 
@@ -241,10 +237,19 @@ async def main():
     logger.info("Salida completa. Bye.")
 
 
-# ---------- Entrypoint ----------
+# ---------- Entrypoint (Render-friendly) ----------
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except Exception as e:
-        logger.exception("Exception en main():")
-        raise
+    except RuntimeError as e:
+        logger.warning(
+            "asyncio.run() falló (%s). Loop ya corriendo, usando create_task(main()).", e
+        )
+        loop = asyncio.get_event_loop()
+        loop.create_task(main())
+
+        import threading
+        try:
+            threading.Event().wait()
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Interrupción recibida, terminando.")
