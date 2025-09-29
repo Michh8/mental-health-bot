@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-import pkg_resources
 import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
@@ -9,7 +8,6 @@ from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 import google.generativeai as genai
-from aiohttp import web
 
 # ===============================
 # Configuración
@@ -21,7 +19,7 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PORT = int(os.environ.get("PORT", 10000))
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # ej: https://tu-app.onrender.com/webhook
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # ej: https://tu-app.onrender.com
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -66,7 +64,10 @@ async def chat(update, context):
 # ===============================
 # Main con Webhook
 # ===============================
-async def main():
+def main():
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("❌ TELEGRAM_TOKEN no está configurado en .env")
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Handlers
@@ -79,21 +80,27 @@ async def main():
     app.add_handler(CommandHandler("centros", commands.centros))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
-    # Servidor aiohttp para recibir webhook
-    web_app = web.Application()
-    web_app.router.add_post("/webhook", app.webhook_handler)
+    # ==============================
+    # OPCIÓN 1: USAR POLLING (desarrollo local)
+    # ==============================
+    if os.getenv("USE_POLLING", "false").lower() == "true":
+        print("▶️ Iniciando bot en modo polling...")
+        app.run_polling()
+    else:
+        # ==============================
+        # OPCIÓN 2: USAR WEBHOOK (producción en Render/Railway)
+        # ==============================
+        if not WEBHOOK_URL:
+            raise RuntimeError("❌ Debes definir WEBHOOK_URL en el .env para usar webhook")
 
-    runner = web.AppRunner(web_app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-
-    # Configurar webhook en Telegram
-    await app.bot.set_webhook(url=WEBHOOK_URL)
-
-    print(f"🤖 Bot en ejecución con webhook en {WEBHOOK_URL}")
-    await asyncio.Event().wait()  # mantiene el proceso vivo
+        print(f"🤖 Bot en ejecución con webhook en {WEBHOOK_URL}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TELEGRAM_TOKEN,
+            webhook_url=f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}",
+        )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
