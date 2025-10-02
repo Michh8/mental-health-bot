@@ -121,5 +121,5 @@ async def main():
         run_webserver()
     )
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     asyncio.run(main())
