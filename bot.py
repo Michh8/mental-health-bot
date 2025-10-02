@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-import pkg_resources
+import importlib.metadata
 import asyncio
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
@@ -26,9 +26,9 @@ required = {
 
 for package, version in required.items():
     try:
-        installed_version = pkg_resources.get_distribution(package).version
+        installed_version = importlib.metadata.version(package)
         print(f"{package}: {installed_version} (requerido {version})")
-    except pkg_resources.DistributionNotFound:
+    except importlib.metadata.PackageNotFoundError:
         print(f"⚠ {package} no está instalado")
 
 # ===============================
