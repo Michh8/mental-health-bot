@@ -10,7 +10,7 @@ from config import WEATHER_API_KEY, GEMINI_API_KEY
 # Modelo Gemini para MoodCheck
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",
+    model="gemini-2.5-pro",  # Modelo principal
     google_api_key=GEMINI_API_KEY
 )
 
@@ -25,6 +25,14 @@ def find_psych_centers(location: str) -> str:
       node["amenity"="psychologist"](area.searchArea);
       way["amenity"="psychologist"](area.searchArea);
       relation["amenity"="psychologist"](area.searchArea);
+      
+      node["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
+      way["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
+      relation["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
+      
+      node["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
+      way["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
+      relation["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
     );
     out center 10;
     """
@@ -47,7 +55,7 @@ def find_psych_centers(location: str) -> str:
 
 psych_tool = Tool(
     name="PsychCentersTool",
-    description="Busca psicólogos o clínicas psicológicas cercanas a una ubicación usando Overpass API.",
+    description="Busca psicólogos, clínicas o hospitales con psicólogos en una ubicación usando Overpass API.",
     func=find_psych_centers
 )
 
