@@ -93,8 +93,6 @@ async def run_webserver():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     print(f"🌐 Servidor web corriendo en puerto {port}")
-    # Mantener activo mientras el loop viva
-    await asyncio.Event().wait()
 
 # ===============================
 # Main corregido (polling + webserver)
@@ -115,11 +113,22 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
 
     print("🤖 Bot en ejecución...")
-    # Ejecutar polling y servidor web en paralelo
-    await asyncio.gather(
-        app.run_polling(close_loop=False),
-        run_webserver()
-    )
+
+    # Iniciar bot sin bloquear el loop
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
+    # Ejecutar servidor web
+    await run_webserver()
+
+    # Mantener activo hasta que lo paren
+    await asyncio.Event().wait()
+
+    # Cerrar limpieza
+    await app.updater.stop()
+    await app.stop()
+    await app.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
