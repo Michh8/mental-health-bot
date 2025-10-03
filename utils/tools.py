@@ -1,4 +1,3 @@
-
 import requests
 import random
 import logging
@@ -11,98 +10,49 @@ from config import WEATHER_API_KEY, GEMINI_API_KEY
 # Modelo Gemini para MoodCheck
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",  # ✅ Corregido
+    model="gemini-2.5-pro",
     google_api_key=GEMINI_API_KEY
 )
 
 # ===============================
-# Tool 1: Buscar centros psicológicos
+# Tool 1: Buscar centros psicológicos usando Overpass API
 # ===============================
 def find_psych_centers(location: str) -> str:
+    query = f"""
+    [out:json][timeout:10];
+    area["name"="{location}"]->.searchArea;
+    (
+      node["amenity"="psychologist"](area.searchArea);
+      way["amenity"="psychologist"](area.searchArea);
+      relation["amenity"="psychologist"](area.searchArea);
+    );
+    out center 10;
+    """
+    url = "https://overpass-api.de/api/interpreter"
     try:
-        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental"]
-        headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
-        all_results = []
-
-        for term in search_terms:
-            url = "https://nominatim.openstreetmap.org/search"
-            params = {"q": f"{term} {location}", "format": "json", "limit": 10}
-            try:
-                response = requests.get(url, params=params, headers=headers, timeout=10)
-                results = response.json()
-                all_results.extend(results)
-            except requests.RequestException:
-                continue  # Salta esta búsqueda si falla
-
-        if not all_results:
-            return f"No se pudo consultar psicólogos en '{location}' en este momento."
-
-        # Filtrar duplicados y preparar salida
-        seen = set()
-        filtered = []
-        for r in all_results:
-            name = r.get("display_name", "")
-            if name not in seen:
-                filtered.append(r)
-                seen.add(name)
-
+        response = requests.post(url, data=query, timeout=15)
+        data = response.json().get("elements", [])
+        if not data:
+            return f"No encontré psicólogos en '{location}'. Intenta otra ciudad."
         output = []
-        for r in filtered[:10]:
-            name = r.get("display_name", "Desconocido")
-            lat = r.get("lat")
-            lon = r.get("lon")
+        for e in data[:10]:
+            name = e.get("tags", {}).get("name", "Desconocido")
+            lat = e.get("lat") or e.get("center", {}).get("lat")
+            lon = e.get("lon") or e.get("center", {}).get("lon")
             output.append(f"• {name} - 📍 Lat: {lat}, Lon: {lon}")
-
         return "\n".join(output)
-
     except Exception as e:
-        logging.exception("Error en PsychCentersTool")
-        return "❌ No se pudo consultar psicólogos en este momento. Intenta más tarde."
-
-    try:
-        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental", "psicologo","psicologa","psicologica","psicologico","clinica psicologica","hospital"]
-        headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
-        all_results = []
-
-        for term in search_terms:
-            url = "https://nominatim.openstreetmap.org/search"
-            params = {"q": f"{term} {location}", "format": "json", "limit": 10}
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            results = response.json()
-            all_results.extend(results)
-
-        seen = set()
-        filtered = []
-        for r in all_results:
-            name = r.get("display_name", "")
-            if name not in seen:
-                filtered.append(r)
-                seen.add(name)
-
-        if not filtered:
-            return f"No encontré psicólogos o clínicas en '{location}'. Intenta otra ciudad."
-
-        output = []
-        for r in filtered[:10]:
-            name = r.get("display_name", "Desconocido")
-            lat = r.get("lat")
-            lon = r.get("lon")
-            output.append(f"• {name} - 📍 Lat: {lat}, Lon: {lon}")
-
-        return "\n".join(output)
-
-    except Exception as e:
-        logging.exception("Error en PsychCentersTool")
-        return f"Error al consultar psicólogos: {e}"
+        logging.exception("Error en PsychCentersTool (Overpass)")
+        return f"❌ Error al buscar psicólogos en '{location}': {e}"
 
 psych_tool = Tool(
     name="PsychCentersTool",
-    description="Busca psicólogos o clínicas psicológicas cercanas a una ubicación usando OpenStreetMap.",
+    description="Busca psicólogos o clínicas psicológicas cercanas a una ubicación usando Overpass API.",
     func=find_psych_centers
 )
 
 # ===============================
-# Tool 2: Motivación / bienestar (Mejorada)
+# Tool 2: Motivación / bienestar
 # ===============================
 def motivation_tool_func(query: str) -> str:
     prompt = f"""
