@@ -6,6 +6,20 @@ from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
 from zoneinfo import ZoneInfo  # ✅ Para manejar zona horaria
 
 # ===============================
+# Función auxiliar para dividir mensajes largos
+# ===============================
+async def enviar_texto_largo(update: Update, texto: str):
+    """
+    Envía un texto en partes si excede el límite de Telegram (4096 caracteres).
+    """
+    MAX_CHARS = 4096
+    if len(texto) <= MAX_CHARS:
+        await update.message.reply_text(texto)
+    else:
+        for i in range(0, len(texto), MAX_CHARS):
+            await update.message.reply_text(texto[i:i+MAX_CHARS])
+
+# ===============================
 # Comandos básicos
 # ===============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,11 +70,11 @@ async def clima(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ciudad = " ".join(context.args)
     resultado = weather_tool.run(ciudad)
-    await update.message.reply_text(resultado)
+    await enviar_texto_largo(update, resultado)
 
 async def motivacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resultado = motivation_tool.run("motivacion")
-    await update.message.reply_text(resultado)
+    await enviar_texto_largo(update, resultado)
 
 async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -68,7 +82,7 @@ async def mood(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     estado = " ".join(context.args)
     resultado = mood_tool.run(estado)
-    await update.message.reply_text(resultado)
+    await enviar_texto_largo(update, resultado)
 
 async def centros(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -76,4 +90,4 @@ async def centros(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     ciudad = " ".join(context.args)
     resultado = psych_tool.run(ciudad)
-    await update.message.reply_text(resultado)
+    await enviar_texto_largo(update, resultado)
