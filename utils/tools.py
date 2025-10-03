@@ -10,7 +10,7 @@ from config import WEATHER_API_KEY, GEMINI_API_KEY
 # Modelo Gemini para MoodCheck
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",  # Modelo principal
+    model="gemini-2.5-pro",
     google_api_key=GEMINI_API_KEY
 )
 
@@ -18,44 +18,53 @@ llm = ChatGoogleGenerativeAI(
 # Tool 1: Buscar centros psicológicos usando Overpass API
 # ===============================
 def find_psych_centers(location: str) -> str:
+    # Buscamos nodos y ways relacionados con psicología o salud mental
+    # Incluye amenity=clinic, hospital, healthcare=clinic, specialty=psychiatry
     query = f"""
-    [out:json][timeout:10];
+    [out:json][timeout:25];
     area["name"="{location}"]->.searchArea;
     (
-      node["amenity"="psychologist"](area.searchArea);
-      way["amenity"="psychologist"](area.searchArea);
-      relation["amenity"="psychologist"](area.searchArea);
-      
-      node["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
-      way["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
-      relation["amenity"="clinic"]["healthcare"="psychologist"](area.searchArea);
-      
-      node["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
-      way["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
-      relation["amenity"="hospital"]["healthcare"="psychologist"](area.searchArea);
+      node(area.searchArea)["amenity"~"clinic|hospital"];
+      way(area.searchArea)["amenity"~"clinic|hospital"];
+      relation(area.searchArea)["amenity"~"clinic|hospital"];
     );
-    out center 10;
+    out center;
     """
     url = "https://overpass-api.de/api/interpreter"
     try:
-        response = requests.post(url, data=query, timeout=15)
+        response = requests.post(url, data=query, timeout=30)
         data = response.json().get("elements", [])
         if not data:
-            return f"No encontré psicólogos en '{location}'. Intenta otra ciudad."
+            return f"No encontré psicólogos o clínicas en '{location}'. Intenta otra ciudad."
+
+        # Filtrar resultados que contengan palabras clave de psicología
+        keywords = ["psico", "mental", "salud", "psychiatry", "psychology"]
+        filtered = []
+        for e in data:
+            name = e.get("tags", {}).get("name", "")
+            if any(k.lower() in name.lower() for k in keywords):
+                filtered.append(e)
+        # Si no hay filtrados, devolvemos los primeros nodos de salud
+        if not filtered:
+            filtered = data
+
+        # Construir salida
         output = []
-        for e in data[:10]:
+        for e in filtered[:10]:
             name = e.get("tags", {}).get("name", "Desconocido")
             lat = e.get("lat") or e.get("center", {}).get("lat")
             lon = e.get("lon") or e.get("center", {}).get("lon")
             output.append(f"• {name} - 📍 Lat: {lat}, Lon: {lon}")
+
         return "\n".join(output)
+
     except Exception as e:
         logging.exception("Error en PsychCentersTool (Overpass)")
         return f"❌ Error al buscar psicólogos en '{location}': {e}"
 
 psych_tool = Tool(
     name="PsychCentersTool",
-    description="Busca psicólogos, clínicas o hospitales con psicólogos en una ubicación usando Overpass API.",
+    description="Busca psicólogos, clínicas y hospitales cercanos a una ubicación usando Overpass API.",
     func=find_psych_centers
 )
 
