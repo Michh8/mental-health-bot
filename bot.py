@@ -8,8 +8,11 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from handlers import commands
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
-import google.generativeai as genai  # ✅ Para listar modelos de Gemini
-from aiohttp import web  # ✅ Servidor web para mantener vivo el bot
+from langchain.agents import initialize_agent, Tool
+from langchain.agents import AgentType
+from tools import tools_list  # ✅ Tus tools personalizadas
+import google.generativeai as genai
+from aiohttp import web
 
 # ===============================
 # Verificación de versiones
@@ -62,21 +65,32 @@ else:
 # Modelo Gemini
 # ===============================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-pro",  # ✅ Modelo principal
+    model="gemini-2.5-pro",
     google_api_key=GEMINI_API_KEY
 )
 
 # ===============================
-# Chat libre con Gemini
+# Agent de LangChain usando tus tools
+# ===============================
+agent = initialize_agent(
+    tools_list,  # ✅ Tus tools importadas desde tools.py
+    llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True
+)
+
+# ===============================
+# Chat libre con Agent
 # ===============================
 async def chat(update, context):
     try:
         user_message = update.message.text
-        response = llm.invoke([HumanMessage(content=user_message)])
-        await update.message.reply_text(response.content)
+        # Ejecutar el Agent en lugar del llm directo
+        response = agent.run(user_message)
+        await update.message.reply_text(response)
     except Exception as e:
-        logging.exception("Error en chat Gemini")
-        await update.message.reply_text("⚠ Error al procesar tu mensaje con Gemini.")
+        logging.exception("Error en chat con Agent")
+        await update.message.reply_text("⚠ Error al procesar tu mensaje. Intenta de nuevo.")
 
 # ===============================
 # Servidor web para Render / Railway
@@ -95,7 +109,7 @@ async def run_webserver():
     print(f"🌐 Servidor web corriendo en puerto {port}")
 
 # ===============================
-# Main corregido (polling + webserver)
+# Main (polling + webserver)
 # ===============================
 async def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
