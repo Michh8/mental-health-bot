@@ -20,6 +20,46 @@ llm = ChatGoogleGenerativeAI(
 # ===============================
 def find_psych_centers(location: str) -> str:
     try:
+        search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental"]
+        headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
+        all_results = []
+
+        for term in search_terms:
+            url = "https://nominatim.openstreetmap.org/search"
+            params = {"q": f"{term} {location}", "format": "json", "limit": 10}
+            try:
+                response = requests.get(url, params=params, headers=headers, timeout=10)
+                results = response.json()
+                all_results.extend(results)
+            except requests.RequestException:
+                continue  # Salta esta búsqueda si falla
+
+        if not all_results:
+            return f"No se pudo consultar psicólogos en '{location}' en este momento."
+
+        # Filtrar duplicados y preparar salida
+        seen = set()
+        filtered = []
+        for r in all_results:
+            name = r.get("display_name", "")
+            if name not in seen:
+                filtered.append(r)
+                seen.add(name)
+
+        output = []
+        for r in filtered[:10]:
+            name = r.get("display_name", "Desconocido")
+            lat = r.get("lat")
+            lon = r.get("lon")
+            output.append(f"• {name} - 📍 Lat: {lat}, Lon: {lon}")
+
+        return "\n".join(output)
+
+    except Exception as e:
+        logging.exception("Error en PsychCentersTool")
+        return "❌ No se pudo consultar psicólogos en este momento. Intenta más tarde."
+
+    try:
         search_terms = ["psicólogo", "psicóloga", "clínica psicológica", "hospital mental", "psicologo","psicologa","psicologica","psicologico","clinica psicologica","hospital"]
         headers = {"User-Agent": "TelegramBotSaludMental/1.0"}
         all_results = []
