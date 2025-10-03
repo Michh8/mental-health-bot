@@ -10,7 +10,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
-from tools import tools_list  # ✅ Tus tools personalizadas
+from utils.tools import tools_list
 import google.generativeai as genai
 from aiohttp import web
 
