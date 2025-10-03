@@ -3,6 +3,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils.tools import psych_tool, motivation_tool, mood_tool, weather_tool
+from zoneinfo import ZoneInfo  # ✅ Para manejar zona horaria
 
 # ===============================
 # Comandos básicos
@@ -28,11 +29,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def fecha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        now = datetime.now()
+        # ⚠️ Ajusta aquí tu zona horaria
+        now = datetime.now(ZoneInfo("America/El_Salvador"))
+
         dias = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
         meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+
         dia_nombre = dias[now.weekday()]
         mes_nombre = meses[now.month - 1]
+
         fecha_texto = (
             f"📅 Hoy es {dia_nombre.capitalize()}, {now.day:02d} de {mes_nombre} de {now.year}\n"
             f"🕒 Hora: {now.strftime('%H:%M:%S')}"
