@@ -56,7 +56,7 @@ TELEGRAM_BOT_PROYECTO/
 1. **Clona el repositorio:**
 
    ```bash
-   git clone https://github.com/tu_usuario/tu_repositorio.git
+   git clone https://github.com/Michh8/mental-health-bot.git
 cd tu_repositorio
    ```
 
