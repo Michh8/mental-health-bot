@@ -57,7 +57,7 @@ TELEGRAM_BOT_PROYECTO/
 
    ```bash
    git clone https://github.com/tu_usuario/tu_repositorio.git
-   cd tu_repositorio
+cd tu_repositorio
    ```
 
 2. **Crea y activa un entorno virtual:**
