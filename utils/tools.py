@@ -32,7 +32,7 @@ def find_psych_centers(location: str) -> str:
     """
     url = "https://overpass-api.de/api/interpreter"
     try:
-        response = requests.post(url, data=query, timeout=30)
+        response = requests.post(url, data={"data": query}, timeout=30)
         data = response.json().get("elements", [])
         if not data:
             return f"No encontré psicólogos o clínicas en '{location}'. Intenta otra ciudad."
