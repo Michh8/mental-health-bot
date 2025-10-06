@@ -15,4 +15,4 @@ RUN pip install -r requirements.txt
 
 
 # Ejecuta el bot y el monitor al mismo tiempo
-CMD ["sh", "-c", "python bot/main.py & python auto_redeploy.py"]
+CMD ["sh", "-c", "python bot.py & python auto_redeploy.py"]
