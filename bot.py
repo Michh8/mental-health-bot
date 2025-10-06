@@ -73,7 +73,7 @@ llm = ChatGoogleGenerativeAI(
 # Agent de LangChain usando tus tools
 # ===============================
 agent = initialize_agent(
-    tools_list,  # ✅ Tus tools importadas desde tools.py
+    tools_list,
     llm,
     agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
     verbose=True
@@ -85,7 +85,6 @@ agent = initialize_agent(
 async def chat(update, context):
     try:
         user_message = update.message.text
-        # Ejecutar el Agent en lugar del llm directo
         response = agent.run(user_message)
         await update.message.reply_text(response)
     except Exception as e:
@@ -96,11 +95,19 @@ async def chat(update, context):
 # Servidor web para Render / Railway
 # ===============================
 async def handle(request):
-    return web.Response(text="Bot activo ✅")
+    return web.Response(
+        text="Bot activo ✅",
+        status=200,
+        headers={'Content-Type': 'text/plain'}
+    )
+
+async def health(request):
+    return web.Response(text="OK", status=200)
 
 async def run_webserver():
     app = web.Application()
     app.router.add_get("/", handle)
+    app.router.add_get("/health", health)
     port = int(os.environ.get("PORT", 10000))
     runner = web.AppRunner(app)
     await runner.setup()
