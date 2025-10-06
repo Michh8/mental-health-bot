@@ -1,11 +1,12 @@
 import requests
 import time
-
+from dotenv import load_dotenv
 # ======================================
 # CONFIGURACIÓN
 # ======================================
+load_dotenv()
 CHECK_URL = "https://mental-health-bot-2-g9ke.onrender.com"   # tu endpoint principal
-RENDER_DEPLOY_HOOK = "https://api.render.com/deploy/srv-d3cqmb6mcj7s73dr33pg?key=L-VjJV7IvSA"  # tu hook de Render
+RENDER_DEPLOY_HOOK = os.getenv("RENDER_DEPLOY_HOOK")  # tu hook de Render
 CHECK_INTERVAL = 300  # segundos entre verificaciones (300 = 5 minutos)
 
 def is_down():
